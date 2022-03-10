@@ -1,0 +1,6 @@
+/bin/
+/lib/
+/.vscode/
+/out/
+/.idea/
+**/*.iml

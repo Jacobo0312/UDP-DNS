@@ -26,6 +26,10 @@ public class Controller {
             e.printStackTrace();
         }
 
+    }
+
+    public void init() {
+
         try {
             importDomains();
         } catch (IOException e) {
@@ -59,9 +63,6 @@ public class Controller {
 
     }
 
-
-
-    
     private void importNodes() throws IOException {
 
         FileReader file = new FileReader("src/data/nodes.csv");
@@ -71,7 +72,7 @@ public class Controller {
         String line = "";
 
         while ((line = br.readLine()) != null) {
-            nodes.add(new Node(line.split(";")[0],  Integer.parseInt(line.split(";")[1])));
+            nodes.add(new Node(line.split(";")[0], Integer.parseInt(line.split(";")[1])));
 
         }
 
@@ -80,45 +81,42 @@ public class Controller {
 
     }
 
+    private void receptor() {
+        // Lectura
+        new Thread(() -> {
+            while (true) {
+                DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
+                try {
+                    socket.receive(packet);
+                    String msg = new String(packet.getData(), "utf-8").trim();
+                    System.out.println(msg);
 
+                    String ip = packet.getAddress() + "";
+                    ip = ip.substring(1);
+                    int port = packet.getPort();
 
+                    // Node
+                    if (msg.contains(":")) {
+                        nodeRequest(ip, port, msg);
 
-    private void receptor(){
-             // Lectura
-             new Thread(() -> {
-                while (true) {
-                    DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
-                    try {
-                        socket.receive(packet);
-                        String msg = new String(packet.getData(), "utf-8").trim();
-                        System.out.println(msg);
-
-                        String ip = packet.getAddress() + "";
-                        ip = ip.substring(1);
-                        int port = packet.getPort();
-                        //Node
-
-                        if(msg.contains(":")){
-                            nodeRequest(ip, port, msg);
-
-                            //Client
-                        }else{;
-                            request(ip, port, msg.split(":")[0]);
-                        }
-    
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                        // Client
+                    } else {
+                        ;
+                        request(ip, port, msg.split(":")[0]);
                     }
+
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            }).start();
+            }
+        }).start();
     }
 
-
-    private  void nodeRequest(String ip, int port, String msg) throws IOException {
+    private void nodeRequest(String ip, int port, String msg) throws IOException {
 
         boolean find = false;
 
-        msg=msg.substring(1);
+        msg = msg.substring(1);
 
         for (String domain : domains.keySet()) {
             if (msg.equals(domain)) {
@@ -126,7 +124,7 @@ public class Controller {
                 System.out.println(ip);
                 System.out.println(port);
                 System.out.println(domains.get(domain));
-                send(ip, port,":" +domains.get(domain));
+                send(ip, port, ":" + domains.get(domain));
             }
         }
 
@@ -135,10 +133,12 @@ public class Controller {
         }
     }
 
-    private  void request(String ip, int port, String msg) throws IOException {
+    private void request(String ip, int port, String msg) throws IOException {
 
         boolean find = false;
 
+
+        //Searching in my domains
         for (String domain : domains.keySet()) {
             if (msg.equals(domain)) {
                 find = true;
@@ -149,35 +149,62 @@ public class Controller {
         }
 
         if (!find) {
-            Boolean send=false;
-            send(nodes.get(0).getIp(), nodes.get(0).getPort(), ":"+msg);
+
+            boolean send = false;
+
+            for (Node node : nodes) {
+                send(node.getIp(), node.getPort(), ":" + msg);
+
+                DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
+    
+                socket.receive(packet);
+                String x = new String(packet.getData(), "utf-8").trim();
+                if (!x.split(":")[1].equals("NULL")) {
+                    send(ip, port, x.substring(1));
+                    send = true;
+                    break;
+                }
+
+                
+            }
+
+            
+            if (!send) {
+                send(ip, port, "NUll");
+            }
+
+
+            /*
+            Boolean send = false;
+            send(nodes.get(0).getIp(), nodes.get(0).getPort(), ":" + msg);
+
             DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
 
             socket.receive(packet);
             String x = new String(packet.getData(), "utf-8").trim();
-            if (!x.split(":")[1].equals("NULL")){
+            if (!x.split(":")[1].equals("NULL")) {
                 send(ip, port, x.substring(1));
-                send=true;
+                send = true;
             }
-            send(nodes.get(1).getIp(), nodes.get(0).getPort(), ":"+msg);
-             packet = new DatagramPacket(new byte[1024], 1024);
+            send(nodes.get(1).getIp(), nodes.get(0).getPort(), ":" + msg);
+            packet = new DatagramPacket(new byte[1024], 1024);
 
             socket.receive(packet);
-             x = new String(packet.getData(), "utf-8").trim();
-            if (!x.split(":")[1].equals("NULL")){
+            x = new String(packet.getData(), "utf-8").trim();
+            if (!x.split(":")[1].equals("NULL")) {
                 send(ip, port, x.substring(1));
-                send=true;
+                send = true;
             }
 
-            if (!send){
-                send(ip, port,"NUll");
+            if (!send) {
+                send(ip, port, "NUll");
             }
-            
+            */
+
         }
     }
 
-
-    private  void send(String ip, int port, String msg) throws IOException {
+    private void send(String ip, int port, String msg) throws IOException {
         System.out.println("SEND: " + msg);
         // Envio
         DatagramPacket packet = new DatagramPacket(
@@ -188,9 +215,5 @@ public class Controller {
 
         socket.send(packet);
     }
-
-
-
-
 
 }
